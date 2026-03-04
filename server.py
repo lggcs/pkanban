@@ -16,7 +16,11 @@ DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'kanban_dat
 
 
 def is_admin():
-    """Check if running with admin privileges on Windows."""
+    """Check if running with admin/root privileges."""
+    # Check for root on Unix/Linux
+    if hasattr(os, 'geteuid'):
+        return os.geteuid() == 0
+    # Check for admin on Windows
     try:
         import ctypes
         return ctypes.windll.shell32.IsUserAnAdmin()
