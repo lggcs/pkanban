@@ -1,0 +1,2687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanban Board</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --bg-main: #0f172a;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-column: #1e293b;
+            --bg-input: #0f172a;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+            --overdue-color: #ef4444;
+            --warning-color: #f97316;
+            --shadow-color: rgba(0, 0, 0, 0.3);
+        }
+
+        [data-theme="light"] {
+            --bg-main: #f8fafc;
+            --bg-dark: #f1f5f9;
+            --bg-card: #ffffff;
+            --bg-column: #ffffff;
+            --bg-input: #f8fafc;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-main);
+            min-height: 100vh;
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .header {
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary), #8b5cf6);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card);
+            box-shadow: none;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+        }
+
+        .btn-icon {
+            padding: 0.6rem;
+            min-width: 44px;
+            justify-content: center;
+        }
+
+        .btn-icon span {
+            font-size: 1.2rem;
+        }
+
+        .board {
+            padding: 2rem;
+            display: flex;
+            gap: 1.5rem;
+            overflow-x: auto;
+            min-height: calc(100vh - 80px);
+        }
+
+        .column {
+            min-width: 340px;
+            max-width: 340px;
+            background: var(--bg-column);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 120px);
+            border: 2px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .column.drag-over {
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .column.dragging {
+            opacity: 0.7;
+            transform: rotate(2deg);
+        }
+
+        .column-header {
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: grab;
+        }
+
+        .column-header:active {
+            cursor: grabbing;
+        }
+
+        .column-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex: 1;
+        }
+
+        .column-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .column-title h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .column-title h2[contenteditable="true"] {
+            background: var(--bg-dark);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            outline: none;
+            border: 1px solid var(--primary);
+        }
+
+        .column-actions {
+            display: flex;
+            gap: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .column:hover .column-actions {
+            opacity: 1;
+        }
+
+        .column-action-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .column-action-btn:hover {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .column-action-btn.delete:hover {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .card-count {
+            background: var(--border-color);
+            padding: 0.2rem 0.6rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .cards {
+            padding: 1rem;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1rem;
+            cursor: grab;
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px var(--shadow-color);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px var(--shadow-color);
+            border-color: var(--primary);
+        }
+
+        .card.dragging {
+            opacity: 0.5;
+            transform: rotate(3deg);
+        }
+
+        .card.drag-over {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .card-overdue {
+            border-color: var(--overdue-color) !important;
+            box-shadow: 0 0 0 1px var(--overdue-color);
+        }
+
+        .card-warning {
+            border-color: var(--warning-color) !important;
+        }
+
+        .card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .tag {
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .card-dates {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .date-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            background: var(--border-color);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .date-badge:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .date-badge.overdue {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--overdue-color);
+        }
+
+        .date-badge.warning {
+            background: rgba(249, 115, 22, 0.2);
+            color: var(--warning-color);
+        }
+
+        .date-badge.success {
+            background: rgba(74, 222, 128, 0.2);
+            color: #4ade80;
+        }
+
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .card-description {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 0.75rem;
+        }
+
+        .card-progress {
+            margin-bottom: 0.75rem;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.35rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #a855f7);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-fill.complete {
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+        }
+
+        .card-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .card:hover .card-actions {
+            opacity: 1;
+        }
+
+        .card-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .card-btn:hover {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .card-btn.delete:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .add-card-btn {
+            width: 100%;
+            padding: 1rem;
+            background: transparent;
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .add-card-btn:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .add-column-btn {
+            min-width: 340px;
+            max-width: 340px;
+            padding: 2rem;
+            background: transparent;
+            border: 2px dashed var(--border-color);
+            border-radius: 16px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .add-column-btn:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Calendar Modal Styles */
+        .calendar-modal {
+            position: fixed;
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            z-index: 1100;
+            border: 1px solid var(--border-color);
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .calendar-nav {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            font-size: 1rem;
+        }
+
+        .calendar-nav:hover {
+            color: var(--text-primary);
+        }
+
+        .calendar-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+
+        .calendar-day-header {
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            padding: 0.25rem;
+        }
+
+        .calendar-day {
+            text-align: center;
+            padding: 0.5rem;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .calendar-day:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .calendar-day.other-month {
+            color: var(--text-secondary);
+            opacity: 0.5;
+        }
+
+        .calendar-day.today {
+            background: var(--primary);
+            color: white;
+        }
+
+        .calendar-day.selected {
+            background: #22c55e;
+            color: white;
+        }
+
+        .calendar-day.start-date {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .calendar-day.end-date {
+            background: #f97316;
+            color: white;
+        }
+
+        .calendar-day.in-range {
+            background: rgba(99, 102, 241, 0.2);
+        }
+
+        .calendar-footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .calendar-clear {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .calendar-clear:hover {
+            color: #ef4444;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        [data-theme="light"] .modal-overlay {
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: scale(0.9) translateY(20px);
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .tag-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .tag-option {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+            opacity: 0.6;
+        }
+
+        .tag-option:hover {
+            opacity: 0.8;
+        }
+
+        .tag-option.selected {
+            opacity: 1;
+            border-color: white;
+            transform: scale(1.05);
+        }
+
+        /* Checklist Styles */
+        .checklist-section {
+            background: var(--bg-input);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1.25rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .checklist-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .checklist-header h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .checklist-progress {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .checklist-items {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .checklist-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .checklist-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .checklist-item input[type="text"] {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            padding: 0.25rem;
+        }
+
+        .checklist-item input[type="text"]:focus {
+            outline: none;
+        }
+
+        .checklist-item.completed input[type="text"] {
+            text-decoration: line-through;
+            color: var(--text-secondary);
+        }
+
+        .checklist-item-delete {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            opacity: 0;
+            transition: all 0.2s;
+        }
+
+        .checklist-item:hover .checklist-item-delete {
+            opacity: 1;
+        }
+
+        .checklist-item-delete:hover {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .add-checklist-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.75rem;
+            background: transparent;
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .add-checklist-btn:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .modal-actions .btn {
+            flex: 1;
+        }
+
+        .btn-cancel {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-cancel:hover {
+            background: var(--bg-input);
+        }
+
+        /* Confirm Modal */
+        .confirm-modal {
+            max-width: 400px;
+        }
+
+        .confirm-modal p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .confirm-modal .warning {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            color: #ef4444;
+            margin-bottom: 1rem;
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+
+        .select-wrapper select {
+            appearance: none;
+            padding-right: 2.5rem;
+        }
+
+        .select-wrapper::after {
+            content: '▼';
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .toast {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success { border-left: 4px solid #4ade80; }
+        .toast.error { border-left: 4px solid #ef4444; }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .column {
+                min-width: 300px;
+                max-width: 300px;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .header {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.25rem;
+            }
+
+            .btn {
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 0.75rem;
+                flex-wrap: nowrap;
+            }
+
+            .logo h1 {
+                font-size: 1rem;
+            }
+
+            .logo-icon {
+                width: 32px;
+                height: 32px;
+                font-size: 1rem;
+            }
+
+            .btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.8rem;
+            }
+
+            .header-actions {
+                gap: 0.5rem;
+            }
+
+            .board {
+                padding: 0.75rem;
+                gap: 0.75rem;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .column {
+                min-width: 280px;
+                max-width: 85vw;
+                flex-shrink: 0;
+            }
+            
+            .column-header {
+                padding: 1rem;
+            }
+            
+            .column-actions {
+                opacity: 1;
+            }
+            
+            .cards {
+                padding: 0.75rem;
+            }
+            
+            .card {
+                padding: 0.75rem;
+            }
+            
+            .card-actions {
+                opacity: 1;
+            }
+            
+            .add-column-btn {
+                min-width: 280px;
+                max-width: 85vw;
+            }
+
+            .modal {
+                width: 95%;
+                max-height: 85vh;
+                padding: 1.25rem;
+                margin: 0.5rem;
+            }
+            
+            .modal-header h2 {
+                font-size: 1.25rem;
+            }
+            
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
+            
+            .form-group label {
+                font-size: 0.85rem;
+            }
+            
+            .form-group input,
+            .form-group textarea,
+            .form-group select {
+                padding: 0.75rem;
+                font-size: 16px; /* Prevents zoom on mobile */
+            }
+            
+            .tag-option {
+                padding: 0.4rem 0.75rem;
+                font-size: 0.75rem;
+            }
+            
+            .calendar-modal {
+                width: 90%;
+                left: 5% !important;
+                right: 5% !important;
+                max-width: 350px;
+            }
+
+            .confirm-modal {
+                width: 95%;
+            }
+            
+            .modal-actions {
+                flex-direction: column;
+            }
+            
+            .modal-actions .btn {
+                width: 100%;
+            }
+            
+            .toast-container {
+                left: 1rem;
+                right: 1rem;
+                bottom: 1rem;
+            }
+            
+            .toast {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+
+            .logo {
+                justify-content: center;
+                margin-bottom: 0.25rem;
+            }
+
+            .header-actions {
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+
+            .column {
+                min-width: 260px;
+            }
+
+            .column-header {
+                padding: 0.75rem;
+            }
+
+            .column-title h2 {
+                font-size: 0.9rem;
+            }
+
+            .card-title {
+                font-size: 0.9rem;
+            }
+
+            .card-description {
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Touch-friendly improvements */
+        @media (hover: none) and (pointer: coarse) {
+            .card-actions {
+                opacity: 1;
+            }
+            
+            .column-actions {
+                opacity: 1;
+            }
+            
+            .btn {
+                min-height: 44px;
+            }
+            
+            .card-btn {
+                min-height: 36px;
+                min-width: 44px;
+            }
+            
+            .column-action-btn {
+                min-width: 36px;
+                min-height: 36px;
+            }
+        }
+
+        /* Smooth scrolling for board */
+        .board {
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Improve modal scrolling on mobile */
+        .modal {
+            overscroll-behavior: contain;
+        }
+
+        /* Ensure calendar modal fits on small screens */
+        @media (max-width: 400px) {
+            .calendar-modal {
+                font-size: 0.9rem;
+            }
+            
+            .calendar-day {
+                padding: 0.4rem;
+                font-size: 0.8rem;
+            }
+            
+            .calendar-day-header {
+                font-size: 0.6rem;
+            }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+
+        /* Date input styling */
+        input[type="date"] {
+            color-scheme: dark;
+        }
+
+        [data-theme="light"] input[type="date"] {
+            color-scheme: light;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
+        [data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: none;
+        }
+
+        input[type="color"] {
+            padding: 2px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">📋</div>
+            <h1>Kanban Board</h1>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-icon" onclick="toggleTheme()" title="Toggle theme">
+                <span id="themeIcon">🌙</span>
+            </button>
+            <button class="btn btn-secondary" onclick="openTagManager()">
+                <span>🏷️</span> Tags
+            </button>
+            <button class="btn" onclick="openAddModal()">
+                <span>+</span> Add Card
+            </button>
+            <button class="btn btn-secondary" onclick="openAddColumnModal()">
+                <span>📁</span> Add Column
+            </button>
+        </div>
+    </header>
+
+    <main class="board" id="board">
+        <!-- Columns will be rendered here -->
+    </main>
+
+    <!-- Add/Edit Card Modal -->
+    <div class="modal-overlay" id="cardModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Card</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="cardForm">
+                <input type="hidden" id="cardId">
+                <div class="form-group">
+                    <label for="cardTitle">Title</label>
+                    <input type="text" id="cardTitle" placeholder="Enter card title..." required>
+                </div>
+                <div class="form-group">
+                    <label for="cardDescription">Description</label>
+                    <textarea id="cardDescription" placeholder="Enter description..."></textarea>
+                </div>
+
+                <!-- Checklist Section -->
+                <div class="checklist-section">
+                    <div class="checklist-header">
+                        <h3>✅ Checklist</h3>
+                        <div class="checklist-progress">
+                            <span id="checklistProgress">0/0</span>
+                        </div>
+                    </div>
+                    <div class="checklist-items" id="checklistItems">
+                        <!-- Checklist items will be rendered here -->
+                    </div>
+                    <button type="button" class="add-checklist-btn" onclick="addChecklistItem()">
+                        <span>+</span> Add Item
+                    </button>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <div style="position: relative;">
+                            <input type="text" id="cardStartDate" placeholder="Click to select..." readonly onclick="openCalendar('start')" style="cursor: pointer;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <div style="position: relative;">
+                            <input type="text" id="cardEndDate" placeholder="Click to select..." readonly onclick="openCalendar('end')" style="cursor: pointer;">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="cardColumn">Column</label>
+                    <select id="cardColumn"></select>
+                </div>
+                <div class="form-group">
+                    <label>Tags</label>
+                    <div class="tag-selector" id="tagSelector">
+                        <!-- Tags will be rendered here -->
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn">Save Card</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Calendar Modal -->
+    <div class="calendar-modal" id="calendarModal" style="display: none;">
+        <div class="calendar-header">
+            <button class="calendar-nav" onclick="changeMonth(-1)">◀</button>
+            <span class="calendar-title" id="calendarTitle"></span>
+            <button class="calendar-nav" onclick="changeMonth(1)">▶</button>
+        </div>
+        <div class="calendar-grid">
+            <div class="calendar-day-header">Su</div>
+            <div class="calendar-day-header">Mo</div>
+            <div class="calendar-day-header">Tu</div>
+            <div class="calendar-day-header">We</div>
+            <div class="calendar-day-header">Th</div>
+            <div class="calendar-day-header">Fr</div>
+            <div class="calendar-day-header">Sa</div>
+        </div>
+        <div class="calendar-grid" id="calendarDays"></div>
+        <div class="calendar-footer">
+            <button class="calendar-clear" onclick="clearCalendarDate()">Clear Date</button>
+            <button class="btn btn-small" onclick="closeCalendar()">Done</button>
+        </div>
+    </div>
+
+    <!-- Tag Manager Modal -->
+    <div class="modal-overlay" id="tagModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Manage Tags</h2>
+                <button class="modal-close" onclick="closeTagModal()">&times;</button>
+            </div>
+            <form id="newTagForm" style="margin-bottom: 1.5rem;">
+                <div style="display: flex; gap: 0.75rem; align-items: flex-end;">
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                        <label for="newTagName">New Tag Name</label>
+                        <input type="text" id="newTagName" placeholder="Tag name..." required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="newTagColor">Color</label>
+                        <input type="color" id="newTagColor" value="#6366f1" style="width: 50px; height: 42px;">
+                    </div>
+                    <button type="submit" class="btn">Add</button>
+                </div>
+            </form>
+            <div id="tagList">
+                <!-- Tags will be listed here -->
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeTagModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Column Manager Modal -->
+    <div class="modal-overlay" id="columnModal">
+        <div class="modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 id="columnModalTitle">Edit Column</h2>
+                <button class="modal-close" onclick="closeColumnModal()">&times;</button>
+            </div>
+            <form id="columnForm">
+                <input type="hidden" id="columnId">
+                <div class="form-group">
+                    <label for="columnName">Name</label>
+                    <input type="text" id="columnName" placeholder="Column name..." required>
+                </div>
+                <div class="form-group">
+                    <label for="columnColor">Color</label>
+                    <input type="color" id="columnColor" value="#6366f1" style="width: 100%; height: 42px;">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-cancel" onclick="closeColumnModal()">Cancel</button>
+                    <button type="submit" class="btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Column Confirmation Modal -->
+    <div class="modal-overlay" id="deleteColumnModal">
+        <div class="modal confirm-modal">
+            <div class="modal-header">
+                <h2>Delete Column?</h2>
+                <button class="modal-close" onclick="closeDeleteColumnModal()">&times;</button>
+            </div>
+            <div class="warning" id="deleteColumnWarning">
+                <!-- Warning message will be set dynamically -->
+            </div>
+            <p id="deleteColumnMessage">This column contains cards. What would you like to do with them?</p>
+            <div class="form-group" id="moveCardsToGroup">
+                <label for="moveCardsTo">Move cards to:</label>
+                <select id="moveCardsTo">
+                    <!-- Columns will be populated dynamically -->
+                </select>
+            </div>
+            <div id="columnActionsContainer">
+                <!-- Actions will be set dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Card Confirmation Modal -->
+    <div class="modal-overlay" id="deleteCardModal">
+        <div class="modal confirm-modal">
+            <div class="modal-header">
+                <h2>Delete Card?</h2>
+                <button class="modal-close" onclick="closeDeleteCardModal()">&times;</button>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem;">This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" onclick="closeDeleteCardModal()">No, Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDeleteCard()">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // State
+        let cards = {};
+        let tags = [];
+        let columns = [];
+        let selectedTags = [];
+        let draggedCardId = null;
+        let draggedColumnId = null;
+        let currentChecklist = [];
+
+        // Calendar state
+        let calendarCurrentDate = new Date();
+        let calendarType = 'start'; // 'start' or 'end'
+        let calendarStartDate = null;
+        let calendarEndDate = null;
+
+        // API Base URL
+        const API_BASE = `${window.location.protocol}//${window.location.host}/api`;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            loadData();
+        });
+
+        // Theme Functions
+        function initTheme() {
+            const savedTheme = localStorage.getItem('kanban_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('kanban_theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('themeIcon');
+            if (icon) {
+                icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+            }
+        }
+
+        // API Functions
+        async function api(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    body: options.body ? JSON.stringify(options.body) : undefined
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                showToast(error.message || 'Connection error', 'error');
+                throw error;
+            }
+        }
+
+        async function loadData() {
+            try {
+                const [cardsData, tagsData, columnsData] = await Promise.all([
+                    api('/cards'),
+                    api('/tags'),
+                    api('/columns')
+                ]);
+                cards = cardsData;
+                tags = tagsData;
+                columns = columnsData;
+                localStorage.setItem('kanban_cards', JSON.stringify(cards));
+                localStorage.setItem('kanban_tags', JSON.stringify(tags));
+                localStorage.setItem('kanban_columns', JSON.stringify(columns));
+                renderBoard();
+            } catch (error) {
+                // Load from localStorage as fallback
+                const savedCards = localStorage.getItem('kanban_cards');
+                const savedTags = localStorage.getItem('kanban_tags');
+                const savedColumns = localStorage.getItem('kanban_columns');
+                if (savedCards) cards = JSON.parse(savedCards);
+                if (savedTags) tags = JSON.parse(savedTags);
+                if (savedColumns) columns = JSON.parse(savedColumns);
+                else {
+                    // Default columns
+                    columns = [
+                        { id: 'todo', name: 'To Do', position: 0, color: '#f472b6' },
+                        { id: 'progress', name: 'In Progress', position: 1, color: '#60a5fa' },
+                        { id: 'done', name: 'Done', position: 2, color: '#4ade80' }
+                    ];
+                }
+                renderBoard();
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('kanban_cards', JSON.stringify(cards));
+            localStorage.setItem('kanban_tags', JSON.stringify(tags));
+            localStorage.setItem('kanban_columns', JSON.stringify(columns));
+        }
+
+        // Helper Functions
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        function formatDateForInput(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function getDateStatus(card) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (!card.end_date) return null;
+            
+            const endDate = new Date(card.end_date);
+            endDate.setHours(0, 0, 0, 0);
+            
+            const diffDays = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 0) return 'overdue';
+            if (diffDays <= 3) return 'warning';
+            if (card.column === 'done') return 'success';
+            return null;
+        }
+
+        function getChecklistProgress(checklist) {
+            if (!checklist || checklist.length === 0) return { completed: 0, total: 0, percent: 0 };
+            const completed = checklist.filter(item => item.completed).length;
+            const total = checklist.length;
+            const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+            return { completed, total, percent };
+        }
+
+        // Calendar Functions
+        function openCalendar(type) {
+            calendarType = type;
+            const modal = document.getElementById('calendarModal');
+            const input = type === 'start' ? document.getElementById('cardStartDate') : document.getElementById('cardEndDate');
+            
+            // Position calendar near the input
+            const rect = input.getBoundingClientRect();
+            modal.style.position = 'fixed';
+            modal.style.left = `${Math.min(rect.left, window.innerWidth - 300)}px`;
+            modal.style.top = `${Math.min(rect.bottom + 5, window.innerHeight - 350)}px`;
+            modal.style.display = 'block';
+            
+            // Initialize with current date
+            const currentValue = input.value;
+            if (currentValue) {
+                const parsed = new Date(currentValue);
+                if (!isNaN(parsed)) {
+                    calendarCurrentDate = new Date(parsed.getFullYear(), parsed.getMonth(), 1);
+                }
+            }
+            
+            renderCalendar();
+        }
+
+        function closeCalendar() {
+            document.getElementById('calendarModal').style.display = 'none';
+        }
+
+        function changeMonth(delta) {
+            calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const year = calendarCurrentDate.getFullYear();
+            const month = calendarCurrentDate.getMonth();
+            
+            document.getElementById('calendarTitle').textContent = 
+                new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const startPadding = firstDay.getDay();
+            
+            const container = document.getElementById('calendarDays');
+            container.innerHTML = '';
+            
+            // Previous month days
+            const prevMonth = new Date(year, month, 0);
+            for (let i = startPadding - 1; i >= 0; i--) {
+                const day = prevMonth.getDate() - i;
+                container.innerHTML += `<div class="calendar-day other-month">${day}</div>`;
+            }
+            
+            // Current month days
+            const today = new Date();
+            const inputId = calendarType === 'start' ? 'cardStartDate' : 'cardEndDate';
+            const selectedDate = document.getElementById(inputId).value;
+            
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(year, month, day);
+                const dateStr = date.toISOString().split('T')[0];
+                let classes = 'calendar-day';
+                
+                if (date.toDateString() === today.toDateString()) {
+                    classes += ' today';
+                }
+                if (selectedDate && dateStr === selectedDate) {
+                    classes += ' selected';
+                }
+                
+                // Highlight if in range
+                if (calendarStartDate && calendarEndDate && calendarType === 'end') {
+                    const start = new Date(calendarStartDate);
+                    const end = new Date(dateStr);
+                    if (end >= start) {
+                        classes += ' in-range';
+                    }
+                }
+                
+                container.innerHTML += `<div class="${classes}" onclick="selectDate('${dateStr}')">${day}</div>`;
+            }
+            
+            // Next month days
+            const totalCells = Math.ceil((lastDay.getDate() + startPadding) / 7) * 7;
+            const remaining = totalCells - (lastDay.getDate() + startPadding);
+            for (let day = 1; day <= remaining; day++) {
+                container.innerHTML += `<div class="calendar-day other-month">${day}</div>`;
+            }
+        }
+
+        function selectDate(dateStr) {
+            const input = calendarType === 'start' ? document.getElementById('cardStartDate') : document.getElementById('cardEndDate');
+            input.value = dateStr;
+            input.textContent = formatDateForInput(dateStr);
+            
+            if (calendarType === 'start') {
+                calendarStartDate = dateStr;
+            } else {
+                calendarEndDate = dateStr;
+            }
+            
+            renderCalendar();
+        }
+
+        function clearCalendarDate() {
+            const input = calendarType === 'start' ? document.getElementById('cardStartDate') : document.getElementById('cardEndDate');
+            input.value = '';
+            input.textContent = '';
+            renderCalendar();
+        }
+
+        // Render Functions
+        function renderBoard() {
+            const board = document.getElementById('board');
+            
+            // Sort columns by position
+            const sortedColumns = [...columns].sort((a, b) => a.position - b.position);
+            
+            board.innerHTML = sortedColumns.map(col => {
+                const columnCards = Object.values(cards)
+                    .filter(card => card.column === col.id)
+                    .sort((a, b) => a.position - b.position);
+                
+                return `
+                    <div class="column" 
+                         data-column-id="${col.id}"
+                         draggable="true"
+                         ondragstart="handleColumnDragStart(event, '${col.id}')"
+                         ondragend="handleColumnDragEnd(event)"
+                         ondrop="handleCardDrop(event, '${col.id}')" 
+                         ondragover="handleCardDragOver(event)"
+                         ondragleave="handleCardDragLeave(event)">
+                        <div class="column-header" 
+                             ondblclick="openEditColumnModal('${col.id}')">
+                            <div class="column-title">
+                                <span class="column-color" style="background: ${sanitizeColor(col.color)}"></span>
+                                <h2>${escapeHtml(col.name)}</h2>
+                            </div>
+                            <div class="column-actions">
+                                <button class="column-action-btn" onclick="event.stopPropagation(); openEditColumnModal('${col.id}')" title="Edit">✏️</button>
+                                <button class="column-action-btn delete" onclick="event.stopPropagation(); confirmDeleteColumn('${col.id}')" title="Delete">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="cards" id="column-${col.id}">
+                            ${columnCards.map(card => renderCard(card)).join('')}
+                            <button class="add-card-btn" onclick="openAddModal('${col.id}')">
+                                <span>+</span> Add Card
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('') + `
+                <button class="add-column-btn" onclick="openAddColumnModal()">
+                    <span style="font-size: 2rem;">+</span>
+                    <span>Add Column</span>
+                </button>
+            `;
+        }
+
+        function renderCard(card) {
+            const dateStatus = getDateStatus(card);
+            const progress = getChecklistProgress(card.checklist);
+            const col = columns.find(c => c.id === card.column);
+            const colColor = col ? col.color : '#6366f1';
+            
+            // Determine card class based on status
+            let cardClass = 'card';
+            if (dateStatus === 'overdue' && card.column !== 'done') {
+                cardClass += ' card-overdue';
+            } else if (dateStatus === 'warning' && card.column !== 'done') {
+                cardClass += ' card-warning';
+            }
+
+            return `
+                <div class="${cardClass}" 
+                     draggable="true" 
+                     data-id="${card.id}"
+                     ondragstart="handleCardDragStart(event, ${card.id})"
+                     ondragend="handleCardDragEnd(event)">
+                    ${card.tags && card.tags.length > 0 ? `
+                        <div class="card-tags">
+                            ${card.tags.map(tag => `
+                                <span class="tag" style="background: ${sanitizeColor(tag.color)}20; color: ${sanitizeColor(tag.color)}">
+                                    ${escapeHtml(tag.name)}
+                                </span>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${(card.start_date || card.end_date) ? `
+                        <div class="card-dates">
+                            ${card.start_date ? `
+                                <span class="date-badge" onclick="event.stopPropagation(); openCardEdit(${card.id}, 'dates')">
+                                    📅 ${formatDate(card.start_date)}
+                                </span>
+                            ` : ''}
+                            ${card.end_date ? `
+                                <span class="date-badge ${dateStatus || ''}" onclick="event.stopPropagation(); openCardEdit(${card.id}, 'dates')">
+                                    ${dateStatus === 'overdue' && card.column !== 'done' ? '⚠️' : '🏁'} ${formatDate(card.end_date)}
+                                    ${dateStatus === 'overdue' && card.column !== 'done' ? ' (Overdue)' : ''}
+                                </span>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                    
+                    <h3 class="card-title">${escapeHtml(card.title)}</h3>
+                    
+                    ${card.description ? `<p class="card-description">${escapeHtml(card.description)}</p>` : ''}
+                    
+                    ${card.checklist && card.checklist.length > 0 ? `
+                        <div class="card-progress">
+                            <div class="progress-header">
+                                <span>📋 Checklist</span>
+                                <span>${progress.completed}/${progress.total} (${progress.percent}%)</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill ${progress.percent === 100 ? 'complete' : ''}" 
+                                     style="width: ${progress.percent}%"></div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="card-actions">
+                        <button class="card-btn" onclick="openEditModal(${card.id})">Edit</button>
+                        <button class="card-btn delete" onclick="deleteCard(${card.id})">Delete</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTagSelector() {
+            const container = document.getElementById('tagSelector');
+            container.innerHTML = tags.map(tag => `
+                <span class="tag-option ${selectedTags.includes(tag.id) ? 'selected' : ''}"
+                      style="background: ${sanitizeColor(tag.color)}; color: white;"
+                      onclick="toggleTag(${tag.id})">
+                    ${escapeHtml(tag.name)}
+                </span>
+            `).join('');
+        }
+
+        function renderTagList() {
+            const container = document.getElementById('tagList');
+            container.innerHTML = tags.map(tag => `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: var(--bg-dark); border-radius: 10px; margin-bottom: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="width: 24px; height: 24px; border-radius: 6px; background: ${sanitizeColor(tag.color)};"></span>
+                        <span>${escapeHtml(tag.name)}</span>
+                    </div>
+                    <button onclick="deleteTag(${tag.id})" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 0.5rem;">
+                        🗑️
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function renderColumnSelector() {
+            const select = document.getElementById('cardColumn');
+            const sortedColumns = [...columns].sort((a, b) => a.position - b.position);
+            select.innerHTML = sortedColumns.map(col => `
+                <option value="${col.id}">${escapeHtml(col.name)}</option>
+            `).join('');
+        }
+
+        function renderChecklist() {
+            const container = document.getElementById('checklistItems');
+            const progress = getChecklistProgress(currentChecklist);
+            
+            document.getElementById('checklistProgress').textContent = 
+                `${progress.completed}/${progress.total}`;
+            
+            if (currentChecklist.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.85rem; text-align: center; padding: 1rem;">No items yet. Click "Add Item" to create one.</p>';
+                return;
+            }
+            
+            container.innerHTML = currentChecklist.map((item, index) => `
+                <div class="checklist-item ${item.completed ? 'completed' : ''}">
+                    <input type="checkbox" 
+                           ${item.completed ? 'checked' : ''} 
+                           onchange="toggleChecklistItem(${index})">
+                    <input type="text" 
+                           value="${escapeHtml(item.text)}" 
+                           placeholder="Item text..."
+                           onchange="updateChecklistItemText(${index}, this.value)">
+                    <button class="checklist-item-delete" onclick="removeChecklistItem(${index})">🗑️</button>
+                </div>
+            `).join('');
+        }
+
+        // Checklist functions
+        function addChecklistItem() {
+            currentChecklist.push({
+                text: '',
+                completed: false
+            });
+            renderChecklist();
+            // Focus the new input
+            const inputs = document.querySelectorAll('#checklistItems input[type="text"]');
+            if (inputs.length > 0) {
+                inputs[inputs.length - 1].focus();
+            }
+        }
+
+        function toggleChecklistItem(index) {
+            currentChecklist[index].completed = !currentChecklist[index].completed;
+            renderChecklist();
+        }
+
+        function updateChecklistItemText(index, text) {
+            currentChecklist[index].text = text;
+        }
+
+        function removeChecklistItem(index) {
+            currentChecklist.splice(index, 1);
+            renderChecklist();
+        }
+
+        // Column Drag and Drop
+        function handleColumnDragStart(event, columnId) {
+            draggedColumnId = columnId;
+            event.target.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', `column:${columnId}`);
+        }
+
+        function handleColumnDragEnd(event) {
+            event.target.classList.remove('dragging');
+            draggedColumnId = null;
+        }
+
+        // Card Drag and Drop Handlers
+        function handleCardDragStart(event, cardId) {
+            event.stopPropagation();
+            draggedCardId = cardId;
+            event.target.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', `card:${cardId}`);
+        }
+
+        function handleCardDragEnd(event) {
+            event.stopPropagation();
+            event.target.classList.remove('dragging');
+            document.querySelectorAll('.card').forEach(card => {
+                card.classList.remove('drag-over');
+            });
+            draggedCardId = null;
+        }
+
+        function handleCardDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            
+            // Check if we're dragging a column
+            if (draggedColumnId) {
+                const columns = [...document.querySelectorAll('.column')];
+                const afterElement = getColumnDragAfterElement(event.clientX);
+                
+                document.querySelectorAll('.column').forEach(col => {
+                    col.classList.remove('drag-over');
+                });
+                
+                if (afterElement) {
+                    afterElement.classList.add('drag-over');
+                }
+                return;
+            }
+            
+            const cardsContainer = event.target.closest('.cards');
+            if (!cardsContainer) return;
+            
+            const cards = [...cardsContainer.querySelectorAll('.card:not(.dragging)')];
+            const afterElement = getDragAfterElement(cardsContainer, event.clientY);
+            
+            document.querySelectorAll('.card').forEach(card => {
+                card.classList.remove('drag-over');
+            });
+            
+            if (afterElement) {
+                afterElement.classList.add('drag-over');
+            }
+        }
+
+        function handleCardDragLeave(event) {
+            if (!event.target.closest('.cards') && !event.target.closest('.column')) {
+                document.querySelectorAll('.card').forEach(card => {
+                    card.classList.remove('drag-over');
+                });
+            }
+        }
+
+        async function handleCardDrop(event, columnId) {
+            event.preventDefault();
+            
+            // Handle column reorder
+            if (draggedColumnId) {
+                const afterElement = getColumnDragAfterElement(event.clientX);
+                const sortedColumns = [...columns].sort((a, b) => a.position - b.position);
+                
+                let newPosition = 0;
+                if (afterElement) {
+                    const afterId = afterElement.dataset.columnId;
+                    const afterColumn = columns.find(c => c.id === afterId);
+                    newPosition = afterColumn.position;
+                } else {
+                    newPosition = sortedColumns.length - 1;
+                }
+                
+                // Update positions
+                const updates = [];
+                sortedColumns.forEach(col => {
+                    if (col.id === draggedColumnId) {
+                        col.position = newPosition;
+                    } else if (col.position >= newPosition && col.position < columns.find(c => c.id === draggedColumnId).position) {
+                        col.position++;
+                    } else if (col.position <= newPosition && col.position > columns.find(c => c.id === draggedColumnId).position) {
+                        col.position--;
+                    }
+                    updates.push({ id: col.id, position: col.position });
+                });
+                
+                renderBoard();
+                saveToLocalStorage();
+                
+                try {
+                    await api('/columns/reorder', {
+                        method: 'PUT',
+                        body: updates
+                    });
+                } catch (error) {
+                    console.error('Failed to sync columns:', error);
+                }
+                
+                draggedColumnId = null;
+                return;
+            }
+            
+            // Handle card reorder
+            if (draggedCardId === null) return;
+            
+            const cardsContainer = event.target.closest('.cards');
+            if (!cardsContainer) return;
+            
+            const afterElement = getDragAfterElement(cardsContainer, event.clientY);
+            const cardIds = [...cardsContainer.querySelectorAll('.card:not(.dragging)')]
+                .map(el => parseInt(el.dataset.id));
+            
+            let newPosition;
+            if (afterElement) {
+                const afterId = parseInt(afterElement.dataset.id);
+                const afterIndex = cardIds.indexOf(afterId);
+                newPosition = afterIndex;
+            } else {
+                newPosition = cardIds.length;
+            }
+            
+            // Update locally first for immediate feedback
+            const card = cards[draggedCardId];
+            card.column = columnId;
+            
+            // Recalculate positions
+            const updates = [];
+            const columnCards = Object.values(cards)
+                .filter(c => c.column === columnId && c.id !== draggedCardId)
+                .sort((a, b) => a.position - b.position);
+            
+            columnCards.forEach((c, i) => {
+                if (i >= newPosition) {
+                    c.position = i + 1;
+                } else {
+                    c.position = i;
+                }
+                updates.push({ id: c.id, column: columnId, position: c.position });
+            });
+            
+            card.position = newPosition;
+            updates.push({ id: draggedCardId, column: columnId, position: newPosition });
+            
+            renderBoard();
+            saveToLocalStorage();
+            
+            // Send updates to server
+            try {
+                await api('/reorder', {
+                    method: 'PUT',
+                    body: updates
+                });
+            } catch (error) {
+                console.error('Failed to sync with server:', error);
+            }
+            
+            draggedCardId = null;
+        }
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.card:not(.dragging)')];
+            
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function getColumnDragAfterElement(x) {
+            const columns = [...document.querySelectorAll('.column')];
+            
+            return columns.reduce((closest, column) => {
+                const box = column.getBoundingClientRect();
+                const offset = x - box.left - box.width / 2;
+                
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: column };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        // Modal Functions
+        function openAddModal(columnId = null) {
+            document.getElementById('modalTitle').textContent = 'Add New Card';
+            document.getElementById('cardId').value = '';
+            document.getElementById('cardTitle').value = '';
+            document.getElementById('cardDescription').value = '';
+            renderColumnSelector();
+            document.getElementById('cardColumn').value = columnId || (columns[0]?.id || 'todo');
+            document.getElementById('cardStartDate').value = '';
+            document.getElementById('cardStartDate').textContent = '';
+            document.getElementById('cardEndDate').value = '';
+            document.getElementById('cardEndDate').textContent = '';
+            calendarStartDate = null;
+            calendarEndDate = null;
+            selectedTags = [];
+            currentChecklist = [];
+            renderTagSelector();
+            renderChecklist();
+            document.getElementById('cardModal').classList.add('active');
+        }
+
+        function openCardEdit(cardId, focusSection = null) {
+            openEditModal(cardId);
+        }
+
+        function openEditModal(cardId) {
+            const card = cards[cardId];
+            if (!card) return;
+            
+            document.getElementById('modalTitle').textContent = 'Edit Card';
+            document.getElementById('cardId').value = cardId;
+            document.getElementById('cardTitle').value = card.title;
+            document.getElementById('cardDescription').value = card.description || '';
+            renderColumnSelector();
+            document.getElementById('cardColumn').value = card.column;
+            document.getElementById('cardStartDate').value = card.start_date || '';
+            document.getElementById('cardStartDate').textContent = card.start_date ? formatDateForInput(card.start_date) : '';
+            document.getElementById('cardEndDate').value = card.end_date || '';
+            document.getElementById('cardEndDate').textContent = card.end_date ? formatDateForInput(card.end_date) : '';
+            calendarStartDate = card.start_date;
+            calendarEndDate = card.end_date;
+            selectedTags = card.tags ? card.tags.map(t => t.id) : [];
+            currentChecklist = card.checklist ? card.checklist.map(item => ({
+                id: item.id,
+                text: item.text,
+                completed: item.completed
+            })) : [];
+            renderTagSelector();
+            renderChecklist();
+            document.getElementById('cardModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('cardModal').classList.remove('active');
+            closeCalendar();
+        }
+
+        function openTagManager() {
+            renderTagList();
+            document.getElementById('tagModal').classList.add('active');
+        }
+
+        function closeTagModal() {
+            document.getElementById('tagModal').classList.remove('active');
+        }
+
+        function toggleTag(tagId) {
+            const index = selectedTags.indexOf(tagId);
+            if (index > -1) {
+                selectedTags.splice(index, 1);
+            } else {
+                selectedTags.push(tagId);
+            }
+            renderTagSelector();
+        }
+
+        // Column Modal Functions
+        function openAddColumnModal() {
+            document.getElementById('columnModalTitle').textContent = 'Add Column';
+            document.getElementById('columnId').value = '';
+            document.getElementById('columnName').value = '';
+            document.getElementById('columnColor').value = '#6366f1';
+            document.getElementById('columnModal').classList.add('active');
+        }
+
+        function openEditColumnModal(columnId) {
+            const col = columns.find(c => c.id === columnId);
+            if (!col) return;
+            
+            document.getElementById('columnModalTitle').textContent = 'Edit Column';
+            document.getElementById('columnId').value = columnId;
+            document.getElementById('columnName').value = col.name;
+            document.getElementById('columnColor').value = col.color;
+            document.getElementById('columnModal').classList.add('active');
+        }
+
+        function closeColumnModal() {
+            document.getElementById('columnModal').classList.remove('active');
+        }
+
+        let columnToDelete = null;
+
+        function confirmDeleteColumn(columnId) {
+            const col = columns.find(c => c.id === columnId);
+            if (!col) return;
+
+            const cardCount = Object.values(cards).filter(c => c.column === columnId).length;
+            columnToDelete = columnId;
+
+            const actionsContainer = document.getElementById('columnActionsContainer');
+            const otherColumns = columns.filter(c => c.id !== columnId).sort((a, b) => a.position - b.position);
+
+            if (cardCount > 0) {
+                const warning = document.getElementById('deleteColumnWarning');
+                warning.innerHTML = `⚠️ This column contains <strong>${cardCount} card${cardCount > 1 ? 's' : ''}</strong>.`;
+                warning.style.display = 'block';
+
+                if (otherColumns.length > 0) {
+                    document.getElementById('deleteColumnMessage').style.display = 'block';
+                    document.getElementById('moveCardsToGroup').style.display = 'block';
+
+                    // Populate move options
+                    const moveSelect = document.getElementById('moveCardsTo');
+                    moveSelect.innerHTML = otherColumns.map(c =>
+                        `<option value="${c.id}">${escapeHtml(c.name)}</option>`
+                    ).join('');
+
+                    actionsContainer.innerHTML = `
+                        <div class="modal-actions" style="flex-direction: column; gap: 0.75rem;">
+                            <button class="btn btn-small" onclick="moveCardsAndDelete()" style="width: 100%;">Move Cards & Delete Column</button>
+                            <button class="btn btn-small btn-danger" onclick="deleteCardsAndColumn()" style="width: 100%;">Delete All Cards & Column</button>
+                            <button class="btn btn-small btn-cancel" onclick="closeDeleteColumnModal()" style="width: 100%;">Cancel</button>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('deleteColumnMessage').style.display = 'none';
+                    document.getElementById('moveCardsToGroup').style.display = 'none';
+
+                    actionsContainer.innerHTML = `
+                        <div class="modal-actions" style="flex-direction: column; gap: 0.75rem;">
+                            <button class="btn btn-small btn-danger" onclick="deleteCardsAndColumn()" style="width: 100%;">Delete All Cards & Column</button>
+                            <button class="btn btn-small btn-cancel" onclick="closeDeleteColumnModal()" style="width: 100%;">Cancel</button>
+                        </div>
+                    `;
+                }
+            } else {
+                document.getElementById('deleteColumnWarning').style.display = 'none';
+                document.getElementById('deleteColumnMessage').style.display = 'none';
+                document.getElementById('moveCardsToGroup').style.display = 'none';
+
+                actionsContainer.innerHTML = `
+                    <div class="modal-actions">
+                        <button class="btn btn-cancel" onclick="closeDeleteColumnModal()">No, Cancel</button>
+                        <button class="btn btn-danger" onclick="deleteEmptyColumn()">Yes, Delete</button>
+                    </div>
+                `;
+            }
+
+            document.getElementById('deleteColumnModal').classList.add('active');
+        }
+
+        function closeDeleteColumnModal() {
+            document.getElementById('deleteColumnModal').classList.remove('active');
+            columnToDelete = null;
+        }
+
+        async function deleteEmptyColumn() {
+            if (!columnToDelete) return;
+
+            try {
+                await api(`/columns/${columnToDelete}`, { method: 'DELETE' });
+                columns = columns.filter(c => c.id !== columnToDelete);
+                saveToLocalStorage();
+                await loadData();
+                closeDeleteColumnModal();
+                showToast('Column deleted!', 'success');
+            } catch (error) {
+                showToast('Failed to delete column', 'error');
+            }
+        }
+
+        async function moveCardsAndDelete() {
+            if (!columnToDelete) return;
+            
+            const targetColumn = document.getElementById('moveCardsTo').value;
+            
+            try {
+                // Move cards
+                await api('/columns/move-cards', {
+                    method: 'PUT',
+                    body: { from_column: columnToDelete, to_column: targetColumn }
+                });
+                
+                // Delete column
+                await api(`/columns/${columnToDelete}`, { method: 'DELETE' });
+                
+                columns = columns.filter(c => c.id !== columnToDelete);
+                
+                // Update local cards
+                Object.values(cards).forEach(card => {
+                    if (card.column === columnToDelete) {
+                        card.column = targetColumn;
+                    }
+                });
+                
+                saveToLocalStorage();
+                await loadData();
+                closeDeleteColumnModal();
+                showToast('Column deleted and cards moved!', 'success');
+            } catch (error) {
+                showToast('Failed to delete column', 'error');
+            }
+        }
+
+        async function deleteCardsAndColumn() {
+            if (!columnToDelete) return;
+            
+            // Delete all cards in column
+            for (const card of Object.values(cards)) {
+                if (card.column === columnToDelete) {
+                    try {
+                        await api(`/cards/${card.id}`, { method: 'DELETE' });
+                    } catch (e) {}
+                }
+            }
+            
+            try {
+                await api(`/columns/${columnToDelete}`, { method: 'DELETE' });
+                columns = columns.filter(c => c.id !== columnToDelete);
+                
+                // Remove cards from local state
+                Object.keys(cards).forEach(cardId => {
+                    if (cards[cardId].column === columnToDelete) {
+                        delete cards[cardId];
+                    }
+                });
+                
+                saveToLocalStorage();
+                renderBoard();
+                closeDeleteColumnModal();
+                showToast('Column and all cards deleted!', 'success');
+            } catch (error) {
+                showToast('Failed to delete column', 'error');
+            }
+        }
+
+        // CRUD Operations
+        document.getElementById('cardForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const cardId = document.getElementById('cardId').value;
+            const cardData = {
+                title: document.getElementById('cardTitle').value,
+                description: document.getElementById('cardDescription').value,
+                column: document.getElementById('cardColumn').value,
+                start_date: document.getElementById('cardStartDate').value || null,
+                end_date: document.getElementById('cardEndDate').value || null,
+                tags: selectedTags,
+                checklist: currentChecklist.filter(item => item.text.trim())
+            };
+            
+            try {
+                let savedCard;
+                if (cardId) {
+                    savedCard = await api(`/cards/${cardId}`, {
+                        method: 'PUT',
+                        body: cardData
+                    });
+                    cards[cardId] = savedCard;
+                    
+                    // Sync checklist items
+                    await syncChecklistItems(cardId, currentChecklist);
+                } else {
+                    savedCard = await api('/cards', {
+                        method: 'POST',
+                        body: cardData
+                    });
+                    cards[savedCard.id] = savedCard;
+                }
+            } catch (error) {
+                // Work offline
+                if (cardId) {
+                    cards[cardId] = { 
+                        ...cards[cardId], 
+                        ...cardData, 
+                        tags: tags.filter(t => selectedTags.includes(t.id)),
+                        checklist: currentChecklist.filter(item => item.text.trim())
+                    };
+                } else {
+                    const newId = Math.max(...Object.keys(cards).map(Number), 0) + 1;
+                    cards[newId] = {
+                        id: newId,
+                        ...cardData,
+                        tags: tags.filter(t => selectedTags.includes(t.id)),
+                        checklist: currentChecklist.filter(item => item.text.trim()),
+                        position: Object.values(cards).filter(c => c.column === cardData.column).length
+                    };
+                }
+            }
+            
+            saveToLocalStorage();
+            closeModal();
+            await loadData();
+            showToast(cardId ? 'Card updated!' : 'Card created!', 'success');
+        });
+
+        async function syncChecklistItems(cardId, checklist) {
+            // Get existing items for this card
+            const existingIds = (cards[cardId]?.checklist || []).map(item => item.id).filter(id => id);
+            
+            // Add or update items
+            for (const item of checklist) {
+                if (item.id) {
+                    // Update existing
+                    await api(`/checklist/${item.id}`, {
+                        method: 'PUT',
+                        body: { text: item.text, completed: item.completed ? 1 : 0 }
+                    });
+                } else {
+                    // Add new
+                    await api(`/cards/${cardId}/checklist`, {
+                        method: 'POST',
+                        body: { text: item.text, completed: item.completed ? 1 : 0 }
+                    });
+                }
+            }
+            
+            // Delete items that are no longer in the list
+            const newItemIds = checklist.map(item => item.id).filter(id => id);
+            for (const existingId of existingIds) {
+                if (!newItemIds.includes(existingId)) {
+                    await api(`/checklist/${existingId}`, { method: 'DELETE' });
+                }
+            }
+        }
+
+        document.getElementById('columnForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const columnId = document.getElementById('columnId').value;
+            const columnData = {
+                name: document.getElementById('columnName').value,
+                color: document.getElementById('columnColor').value
+            };
+            
+            try {
+                if (columnId) {
+                    // Update existing column
+                    await api(`/columns/${columnId}`, {
+                        method: 'PUT',
+                        body: columnData
+                    });
+                    const col = columns.find(c => c.id === columnId);
+                    if (col) {
+                        col.name = columnData.name;
+                        col.color = columnData.color;
+                    }
+                } else {
+                    // Create new column
+                    const newId = 'col_' + Date.now().toString(36);
+                    const newColumn = await api('/columns', {
+                        method: 'POST',
+                        body: { id: newId, ...columnData }
+                    });
+                    columns.push(newColumn);
+                }
+            } catch (error) {
+                // Work offline
+                if (columnId) {
+                    const col = columns.find(c => c.id === columnId);
+                    if (col) {
+                        col.name = columnData.name;
+                        col.color = columnData.color;
+                    }
+                } else {
+                    const newId = 'col_' + Date.now().toString(36);
+                    const maxPos = Math.max(...columns.map(c => c.position), -1);
+                    columns.push({
+                        id: newId,
+                        name: columnData.name,
+                        color: columnData.color,
+                        position: maxPos + 1
+                    });
+                }
+            }
+            
+            saveToLocalStorage();
+            renderBoard();
+            closeColumnModal();
+            showToast(columnId ? 'Column updated!' : 'Column created!', 'success');
+        });
+
+        document.getElementById('newTagForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const tagName = document.getElementById('newTagName').value.trim();
+            const tagColor = document.getElementById('newTagColor').value;
+            
+            if (!tagName) return;
+            
+            try {
+                const newTag = await api('/tags', {
+                    method: 'POST',
+                    body: { name: tagName, color: tagColor }
+                });
+                tags.push(newTag);
+            } catch (error) {
+                const newId = Math.max(...tags.map(t => t.id), 0) + 1;
+                tags.push({ id: newId, name: tagName, color: tagColor });
+            }
+            
+            saveToLocalStorage();
+            document.getElementById('newTagName').value = '';
+            renderTagList();
+            showToast('Tag created!', 'success');
+        });
+
+        let cardToDelete = null;
+
+        function confirmDeleteCardModal(cardId) {
+            cardToDelete = cardId;
+            document.getElementById('deleteCardModal').classList.add('active');
+        }
+
+        function closeDeleteCardModal() {
+            document.getElementById('deleteCardModal').classList.remove('active');
+            cardToDelete = null;
+        }
+
+        async function confirmDeleteCard() {
+            if (!cardToDelete) return;
+
+            const cardId = cardToDelete;
+            closeDeleteCardModal();
+
+            try {
+                await api(`/cards/${cardId}`, { method: 'DELETE' });
+            } catch (error) {
+                // Continue with local delete
+            }
+
+            delete cards[cardId];
+            saveToLocalStorage();
+            renderBoard();
+            showToast('Card deleted!', 'success');
+        }
+
+        async function deleteCard(cardId) {
+            // Legacy function - now shows modal
+            confirmDeleteCardModal(cardId);
+        }
+
+        async function deleteTag(tagId) {
+            if (!confirm('Are you sure you want to delete this tag?')) return;
+            
+            try {
+                await api(`/tags/${tagId}`, { method: 'DELETE' });
+            } catch (error) {
+                // Continue with local delete
+            }
+            
+            tags = tags.filter(t => t.id !== tagId);
+            
+            // Remove tag from all cards
+            Object.values(cards).forEach(card => {
+                if (card.tags) {
+                    card.tags = card.tags.filter(t => t.id !== tagId);
+                }
+            });
+            
+            saveToLocalStorage();
+            renderTagList();
+            showToast('Tag deleted!', 'success');
+        }
+
+        // Utility Functions
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function sanitizeColor(color) {
+            // Only allow valid hex colors (#rrggbb or #rgb) or rgb/rgba format
+            if (!color) return '#6366f1';
+            
+            // Validate hex color
+            const hexPattern = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+            if (hexPattern.test(color)) {
+                return color;
+            }
+            
+            // Validate rgb/rgba format
+            const rgbPattern = /^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*(0|1|0?\.\d+))?\s*\)$/;
+            if (rgbPattern.test(color)) {
+                return color;
+            }
+            
+            // Validate named colors (common safe ones)
+            const namedColors = ['red', 'green', 'blue', 'yellow', 'orange', 'purple', 'pink', 'brown', 'black', 'white', 'gray', 'cyan', 'magenta'];
+            if (namedColors.includes(color.toLowerCase())) {
+                return color;
+            }
+            
+            // Default color if invalid
+            return '#6366f1';
+        }
+
+        function escapeJsString(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/"/g, '\\"')
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r');
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span>${type === 'success' ? '✅' : '❌'}</span>
+                <span>${escapeHtml(message)}</span>
+            `;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeTagModal();
+                closeColumnModal();
+                closeDeleteColumnModal();
+                closeCalendar();
+            }
+            if (e.key === 'n' && e.ctrlKey) {
+                e.preventDefault();
+                openAddModal();
+            }
+        });
+
+        // Click outside to close calendar
+        document.addEventListener('click', (e) => {
+            const calendar = document.getElementById('calendarModal');
+            if (calendar.style.display === 'block' && 
+                !calendar.contains(e.target) && 
+                !e.target.closest('input[onclick*="openCalendar"]')) {
+                closeCalendar();
+            }
+        });
+    </script>
+</body>
+</html>
